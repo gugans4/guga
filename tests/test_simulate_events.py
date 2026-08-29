@@ -104,3 +104,29 @@ def test_channel_ltv_is_cumulative_per_channel_cohort():
     assert (result["ltv"] >= 0).all()
     grouped = result.groupby(["signup_channel", "cohort_month"])["cumulative_revenue"]
     assert grouped.apply(lambda values: values.is_monotonic_increasing).all()
+
+
+def test_anomaly_detector_flags_outlier_and_explains_small_cohorts():
+    from src.metrics.anomalies import detect_cohort_anomalies
+
+    rows = []
+    for cohort, value in [("2025-01", 0.50), ("2025-02", 0.51), ("2025-03", 0.49), ("2025-04", 0.95)]:
+        rows.append({"signup_channel": "organic", "cohort_month": cohort, "period_number": 1, "retention_rate": value, "cohort_users": 100})
+    result = detect_cohort_anomalies(pd.DataFrame(rows))
+    assert result.loc[result["cohort_month"].eq("2025-04"), "is_anomaly"].iloc[0]
+    assert result.loc[result["cohort_month"].eq("2025-04"), "reason"].iloc[0] == "Unusual versus comparable cohort-period peers"
+
+
+def test_export_builders_return_valid_file_signatures():
+    from src.metrics.ab_testing import activation_experiment_from_events
+    from src.metrics.anomalies import detect_cohort_anomalies
+    from src.metrics.channel_cohorts import cohort_retention_by_channel, ltv_by_channel
+    from src.metrics.core import funnel_summary
+    from src.reporting.exports import build_excel_report, build_pdf_report
+
+    events = generate_events(users=300, days=90, seed=7)
+    retention = cohort_retention_by_channel(events)
+    ltv = ltv_by_channel(events)
+    anomalies = detect_cohort_anomalies(retention)
+    assert build_excel_report(events, funnel_summary(events), retention, ltv, anomalies).startswith(b"PK")
+    assert build_pdf_report(funnel_summary(events), activation_experiment_from_events(events), anomalies).startswith(b"%PDF")

@@ -4,3 +4,5 @@ pytest>=8,<9
 plotly>=5.0,<7
 streamlit>=1.30,<2
 statsmodels>=0.14,<1
+openpyxl>=3.1,<4
+reportlab>=4,<5

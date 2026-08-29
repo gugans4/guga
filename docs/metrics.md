@@ -224,3 +224,13 @@ channel_cohort_ltv
 ```
 
 The dashboard exposes a channel selector and shows cohort size in the detail table. Channel cohorts with fewer than 30 eligible users are directional and should not be used as stable performance rankings.
+
+## 15. Cohort anomaly detection
+
+The dashboard uses an explainable robust-statistics check rather than an opaque ML model. For each comparable peer group—by `signup_channel` and `period_number`—it calculates the peer median and median absolute deviation (MAD). An anomaly is flagged when the cohort has at least 30 users, at least 3 comparable peers, and a robust score of at least 3.5. If MAD is zero, the detector falls back to the 1.5 × IQR fence.
+
+An anomaly flag is a prioritization signal, not a diagnosis. Investigate tracking changes, sample-size effects, campaigns, seasonality, pricing, and product releases before assigning a business cause. Recent or small cohorts should remain directional.
+
+## 16. Report exports
+
+The dashboard exports the same approved analytical tables used on screen. Excel contains `Funnel`, `Retention`, `LTV`, `Anomalies`, and `Event sample` sheets. PDF contains a compact funnel and experiment summary plus the number of anomaly flags. Timestamps are converted to timezone-naive UTC values only for Excel compatibility; source event timestamps remain UTC in the CSV schema.

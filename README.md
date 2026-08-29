@@ -126,11 +126,13 @@ The final output is not only a chart. Each analysis should end with a concise de
 - [x] Add automated tests and GitHub Actions.
 - [x] Add channel-segmented retention and LTV.
 - [x] Add Telegram CI reporting (enabled after repository secrets are configured).
+- [x] Add explainable cohort anomaly detection.
+- [x] Add Excel and PDF dashboard exports.
 - [ ] Publish a short case study with findings and limitations.
 
 ## Dashboard deployment
 
-See [`docs/deployment.md`](docs/deployment.md) for local launch instructions, Streamlit Community Cloud deployment settings, and Telegram CI report setup. The app entrypoint is `dashboard/app.py`. Channel-segmented cohort definitions are documented in [`docs/metrics.md`](docs/metrics.md).
+See [`docs/deployment.md`](docs/deployment.md) for local launch instructions, Streamlit Community Cloud deployment settings, and Telegram CI report setup. The app entrypoint is `dashboard/app.py`. Channel-segmented cohorts, anomaly thresholds, and export definitions are documented in [`docs/metrics.md`](docs/metrics.md).
 
 ## Responsible data use
 
