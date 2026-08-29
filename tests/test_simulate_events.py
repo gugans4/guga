@@ -83,3 +83,24 @@ def test_ab_test_from_events_has_both_variants():
     assert result["control_users"] > 0
     assert result["treatment_users"] > 0
     assert result["p_value"] >= 0
+
+
+def test_channel_cohorts_include_channels_and_valid_retention():
+    from src.metrics.channel_cohorts import cohort_retention_by_channel
+
+    events = generate_events(users=1000, days=90, seed=42)
+    result = cohort_retention_by_channel(events)
+    assert set(result["signup_channel"]).issubset(set(events["channel"].unique()))
+    assert result["retention_rate"].between(0, 1).all()
+    assert (result["retained_users"] <= result["cohort_users"]).all()
+
+
+def test_channel_ltv_is_cumulative_per_channel_cohort():
+    from src.metrics.channel_cohorts import ltv_by_channel
+
+    events = generate_events(users=1000, days=90, seed=42)
+    result = ltv_by_channel(events)
+    assert not result.empty
+    assert (result["ltv"] >= 0).all()
+    grouped = result.groupby(["signup_channel", "cohort_month"])["cumulative_revenue"]
+    assert grouped.apply(lambda values: values.is_monotonic_increasing).all()

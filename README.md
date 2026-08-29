@@ -121,14 +121,16 @@ The final output is not only a chart. Each analysis should end with a concise de
 - [ ] Define the event schema and metric dictionary.
 - [ ] Add data validation checks.
 - [ ] Implement funnel and cohort metrics.
-- [ ] Add retention and experiment analysis.
-- [ ] Build the first dashboard view.
-- [ ] Add automated tests and GitHub Actions.
+- [x] Add retention and experiment analysis.
+- [x] Build the first dashboard view.
+- [x] Add automated tests and GitHub Actions.
+- [x] Add channel-segmented retention and LTV.
+- [x] Add Telegram CI reporting (enabled after repository secrets are configured).
 - [ ] Publish a short case study with findings and limitations.
 
 ## Dashboard deployment
 
-See [`docs/deployment.md`](docs/deployment.md) for local launch instructions and Streamlit Community Cloud deployment settings. The app entrypoint is `dashboard/app.py`.
+See [`docs/deployment.md`](docs/deployment.md) for local launch instructions, Streamlit Community Cloud deployment settings, and Telegram CI report setup. The app entrypoint is `dashboard/app.py`. Channel-segmented cohort definitions are documented in [`docs/metrics.md`](docs/metrics.md).
 
 ## Responsible data use
 

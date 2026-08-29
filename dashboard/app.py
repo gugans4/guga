@@ -5,6 +5,7 @@ import plotly.express as px
 import streamlit as st
 
 from src.metrics.ab_testing import activation_experiment_from_events
+from src.metrics.channel_cohorts import cohort_retention_by_channel, ltv_by_channel
 from src.metrics.core import cohort_retention, funnel_summary, ltv_by_cohort
 
 st.set_page_config(page_title="Growth Funnel Lab", layout="wide")
@@ -18,6 +19,7 @@ if not DATA_PATH.exists():
 
 events = pd.read_csv(DATA_PATH, parse_dates=["event_timestamp"])
 events["event_timestamp"] = pd.to_datetime(events["event_timestamp"], utc=True)
+channels = sorted(events["channel"].dropna().unique().tolist())
 
 funnel_tab, retention_tab, ltv_tab, experiment_tab = st.tabs(["Funnel", "Retention", "LTV", "Experiment"])
 
@@ -43,25 +45,34 @@ with retention_tab:
         filtered = retention.loc[retention["period_number"].le(period_limit)].copy()
         heatmap = filtered.pivot(index="cohort_month", columns="period_number", values="retention_rate")
         heatmap.columns = [f"M{int(column)}" for column in heatmap.columns]
-        fig = px.imshow(
-            heatmap,
-            text_auto=".0%",
-            aspect="auto",
-            color_continuous_scale="Oranges",
-            labels={"x": "Months since signup", "y": "Signup cohort", "color": "Retention"},
-        )
+        fig = px.imshow(heatmap, text_auto=".0%", aspect="auto", color_continuous_scale="Oranges", labels={"x": "Months since signup", "y": "Signup cohort", "color": "Retention"})
         fig.update_layout(margin=dict(l=10, r=10, t=30, b=10))
         st.plotly_chart(fig, use_container_width=True)
 
-        curve = filtered.groupby("period_number", as_index=False).agg(
-            retention_rate=("retention_rate", "mean"),
-            cohorts=("cohort_month", "nunique"),
-        )
+        curve = filtered.groupby("period_number", as_index=False).agg(retention_rate=("retention_rate", "mean"), cohorts=("cohort_month", "nunique"))
         curve["period"] = curve["period_number"].map(lambda value: f"M{int(value)}")
         curve_fig = px.line(curve, x="period", y="retention_rate", markers=True, labels={"retention_rate": "Average retention"})
         curve_fig.update_yaxes(tickformat=".0%")
         st.plotly_chart(curve_fig, use_container_width=True)
-        st.caption("Retention counts unique users with a login or activation event in each calendar month after signup. Cohort sizes and definitions are documented in docs/metrics.md.")
+        st.caption("Retention counts unique users with a login or activation event in each calendar month after signup.")
+
+    st.subheader("Retention by acquisition channel")
+    channel_retention = cohort_retention_by_channel(events)
+    if channel_retention.empty:
+        st.info("Not enough data for channel cohorts.")
+    else:
+        selected_channel = st.selectbox("First-touch channel", ["All channels"] + channels, key="retention_channel")
+        if selected_channel != "All channels":
+            channel_retention = channel_retention[channel_retention["signup_channel"].eq(selected_channel)]
+        channel_period_limit = int(channel_retention["period_number"].max())
+        channel_period = st.slider("Channel cohort month", 0, channel_period_limit, min(3, channel_period_limit), key="channel_retention_period")
+        channel_view = channel_retention[channel_retention["period_number"].le(channel_period)].copy()
+        channel_view["cohort_label"] = channel_view["signup_channel"] + " · " + channel_view["cohort_month"]
+        channel_fig = px.line(channel_view, x="period_number", y="retention_rate", color="signup_channel", line_dash="cohort_month", markers=True, labels={"period_number": "Months since signup", "retention_rate": "Retention", "signup_channel": "Channel", "cohort_month": "Cohort"})
+        channel_fig.update_yaxes(tickformat=".0%")
+        st.plotly_chart(channel_fig, use_container_width=True)
+        st.dataframe(channel_view[["signup_channel", "cohort_month", "period_number", "retained_users", "cohort_users", "retention_rate"]].style.format({"retention_rate": "{:.1%}"}), use_container_width=True, hide_index=True)
+        st.caption("Channel is first-touch at signup. Small cohorts should be treated as directional.")
 
 with ltv_tab:
     st.subheader("Cumulative LTV by signup cohort")
@@ -69,23 +80,26 @@ with ltv_tab:
     if ltv.empty:
         st.info("No subscription revenue is available for LTV analysis.")
     else:
-        ltv["period"] = ltv["period_number"].map(lambda value: f"M{int(value)}")
-        ltv_fig = px.line(
-            ltv,
-            x="period_number",
-            y="ltv",
-            color="cohort_month",
-            markers=True,
-            labels={"period_number": "Months since signup", "ltv": "Cumulative LTV", "cohort_month": "Signup cohort"},
-        )
+        ltv_fig = px.line(ltv, x="period_number", y="ltv", color="cohort_month", markers=True, labels={"period_number": "Months since signup", "ltv": "Cumulative LTV", "cohort_month": "Signup cohort"})
         ltv_fig.update_layout(margin=dict(l=10, r=10, t=30, b=10))
         st.plotly_chart(ltv_fig, use_container_width=True)
-
         latest = ltv.sort_values("period_number").groupby("cohort_month", as_index=False).tail(1)
         latest = latest[["cohort_month", "cohort_users", "cumulative_revenue", "ltv"]].sort_values("ltv", ascending=False)
         latest.columns = ["cohort", "users", "cumulative_revenue", "latest_ltv"]
         st.dataframe(latest.style.format({"cumulative_revenue": "${:,.2f}", "latest_ltv": "${:,.2f}"}), use_container_width=True, hide_index=True)
-        st.caption("LTV is cumulative attributed subscription revenue divided by the number of users in the signup cohort. It is observed LTV, not a forecast.")
+
+    st.subheader("Observed LTV by acquisition channel")
+    channel_ltv = ltv_by_channel(events)
+    if channel_ltv.empty:
+        st.info("No subscription revenue is available for channel LTV analysis.")
+    else:
+        ltv_channel = st.selectbox("LTV channel view", ["All channels"] + channels, key="ltv_channel")
+        if ltv_channel != "All channels":
+            channel_ltv = channel_ltv[channel_ltv["signup_channel"].eq(ltv_channel)]
+        ltv_channel_fig = px.line(channel_ltv, x="period_number", y="ltv", color="signup_channel", line_dash="cohort_month", markers=True, labels={"period_number": "Months since signup", "ltv": "Observed cumulative LTV", "signup_channel": "Channel"})
+        ltv_channel_fig.update_layout(margin=dict(l=10, r=10, t=30, b=10))
+        st.plotly_chart(ltv_channel_fig, use_container_width=True)
+        st.caption("Observed cumulative revenue per signup-cohort user, segmented by first-touch channel. This is not a forecast.")
 
 with experiment_tab:
     st.subheader("Experiment readout")
@@ -96,12 +110,5 @@ with experiment_tab:
     col1.metric("Absolute lift", f"{result['absolute_lift']:.1%}")
     col2.metric("Relative lift", f"{result['relative_lift']:.1%}")
     col3.metric("Decision", result["decision"])
-    st.dataframe(
-        summary[["control_users", "control_successes", "control_rate", "treatment_users", "treatment_successes", "treatment_rate", "z_statistic", "p_value", "ci_low", "ci_high", "significant"]].style.format({
-            "control_rate": "{:.1%}", "treatment_rate": "{:.1%}", "p_value": "{:.4f}", "ci_low": "{:.1%}", "ci_high": "{:.1%}", "z_statistic": "{:.2f}"
-        }),
-        use_container_width=True,
-        hide_index=True,
-    )
+    st.dataframe(summary[["control_users", "control_successes", "control_rate", "treatment_users", "treatment_successes", "treatment_rate", "z_statistic", "p_value", "ci_low", "ci_high", "significant"]].style.format({"control_rate": "{:.1%}", "treatment_rate": "{:.1%}", "p_value": "{:.4f}", "ci_low": "{:.1%}", "ci_high": "{:.1%}", "z_statistic": "{:.2f}"}), use_container_width=True, hide_index=True)
     st.caption("The test compares 24-hour activation for independent control and treatment users. Interpret p-value together with effect size, confidence interval, sample size, and guardrails.")
-    st.info("Interpret metrics using docs/metrics.md and docs/ab_testing_notes.md. This project uses synthetic data only.")

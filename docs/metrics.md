@@ -202,3 +202,25 @@ The readout reports:
 | `significant` | Whether `p_value < alpha`, with default `alpha = 0.05` |
 
 A low p-value does not prove that the treatment is practically valuable, and it is not the probability that the hypothesis is true. Interpret it with effect size, confidence interval, sample size, experiment design, and guardrails. The normal approximation may be weak for very small groups or sparse outcomes; such cases should be flagged for a more exact or Bayesian analysis.
+
+## 14. Channel-segmented cohorts
+
+The dashboard segments cohorts by `signup_channel`, which is the user's first-touch acquisition channel attached to the first signup. A channel cohort is the intersection of `signup_channel` and `cohort_month`.
+
+Channel retention uses:
+
+```text
+channel_cohort_retention
+= active unique users for channel + cohort + period
+  / all signed-up users for channel + cohort
+```
+
+Channel LTV uses:
+
+```text
+channel_cohort_ltv
+= cumulative subscription revenue for channel + cohort + period
+  / all signed-up users for channel + cohort
+```
+
+The dashboard exposes a channel selector and shows cohort size in the detail table. Channel cohorts with fewer than 30 eligible users are directional and should not be used as stable performance rankings.

@@ -42,3 +42,23 @@ The app is public and uses synthetic data only. Do not add production exports, s
 - [Run your Streamlit app](https://docs.streamlit.io/develop/concepts/architecture/run-your-app)
 - [Streamlit Community Cloud](https://docs.streamlit.io/deploy/streamlit-community-cloud)
 - [App dependencies](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/app-dependencies)
+
+## Telegram CI reports
+
+The CI workflow can send a compact report after a successful quality run through the Telegram Bot API `sendMessage` method. The workflow never stores credentials in the repository and skips the notification step when either secret is absent.
+
+Create a Telegram bot with BotFather, add it to the destination chat, and obtain the destination `chat_id`. In GitHub, open **Settings → Secrets and variables → Actions → New repository secret** and create:
+
+| Secret | Value |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | The bot token from BotFather |
+| `TELEGRAM_CHAT_ID` | The destination user, group, or channel chat ID |
+
+The notification step sends only the synthetic-data CI summary and does not include credentials or raw event rows. It uses `continue-on-error: true`, so an unavailable Telegram endpoint does not turn a successful analytics test into a failed build. Repository secrets should be passed to workflows through `${{ secrets.NAME }}` rather than hard-coded [1] [2].
+
+This repository currently notifies successful **GitHub Actions CI runs**. Streamlit Community Cloud deployment happens outside GitHub Actions, so a GitHub workflow cannot automatically observe its deployment status unless a separate deployment workflow or webhook integration is introduced. The same Telegram step can be reused in a future deploy workflow after the deploy command reports success.
+
+### References
+
+[1]: https://docs.github.com/actions/security-guides/using-secrets-in-github-actions "GitHub Actions: Using secrets"
+[2]: https://core.telegram.org/bots/api "Telegram Bot API"
