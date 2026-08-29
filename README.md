@@ -126,6 +126,10 @@ The final output is not only a chart. Each analysis should end with a concise de
 - [ ] Add automated tests and GitHub Actions.
 - [ ] Publish a short case study with findings and limitations.
 
+## Dashboard deployment
+
+See [`docs/deployment.md`](docs/deployment.md) for local launch instructions and Streamlit Community Cloud deployment settings. The app entrypoint is `dashboard/app.py`.
+
 ## Responsible data use
 
 This repository is designed for public portfolio work. Use synthetic, anonymized, or explicitly shareable data only. Never commit API keys, credentials, personally identifiable information, or proprietary company data.

@@ -42,3 +42,24 @@ def test_journey_order_for_key_events():
         if earlier in first_times and later in first_times:
             comparable = first_times[[earlier, later]].dropna()
             assert (comparable[later] >= comparable[earlier]).all()
+
+
+def test_cohort_retention_has_valid_rates():
+    from src.metrics.core import cohort_retention
+
+    events = generate_events(users=500, days=60, seed=42)
+    retention = cohort_retention(events)
+    assert not retention.empty
+    assert retention["retention_rate"].between(0, 1).all()
+    assert (retention["retained_users"] <= retention["cohort_users"]).all()
+
+
+def test_ltv_is_non_negative_and_cumulative():
+    from src.metrics.core import ltv_by_cohort
+
+    events = generate_events(users=500, days=60, seed=42)
+    ltv = ltv_by_cohort(events)
+    assert not ltv.empty
+    assert (ltv["ltv"] >= 0).all()
+    for _, cohort in ltv.groupby("cohort_month"):
+        assert cohort["cumulative_revenue"].is_monotonic_increasing

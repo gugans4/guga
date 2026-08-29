@@ -161,3 +161,27 @@ The validation layer should check that:
 ## 10. Interpretation caveats
 
 These metrics describe associations in an observational funnel unless the experiment design supports a causal interpretation. Channel conversion differences may reflect audience mix, targeting, seasonality, or selection bias. Retention is sensitive to the activity definition and observation window. Small segment results are directional and should inform further investigation, not be treated as final business truth.
+
+## 11. Advanced cohort retention
+
+The dashboard uses signup-month cohorts. Each user is assigned to the month of their first signup. For each subsequent calendar month, a user is retained if they generate at least one `login` or `activation` event. The result includes cohort size, retained users, period number (`M0`, `M1`, `M2`, ...), and retention rate.
+
+```text
+monthly_retention(cohort, period)
+= unique active users from cohort in period
+  / all unique users in the cohort
+```
+
+`M0` is the signup month. Partial recent cohorts must be labeled as incomplete because they have had less time to mature. The dashboard presents cohort sizes alongside percentages where possible.
+
+## 12. Observed LTV
+
+For the MVP, LTV is **observed cumulative revenue per signup-cohort user**. It is not a predictive or discounted cash-flow forecast.
+
+```text
+observed_ltv(cohort, period)
+= cumulative attributed subscription revenue through period
+  / unique users in the signup cohort
+```
+
+Revenue is attributed to subscription events. The dashboard plots cumulative LTV by signup cohort and months since signup. Cohorts with incomplete observation windows should not be compared to mature cohorts without an explicit caveat.

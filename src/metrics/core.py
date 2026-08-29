@@ -68,3 +68,54 @@ def experiment_summary(events: pd.DataFrame) -> pd.DataFrame:
     ).reset_index()
     result["activation_rate"] = result["activated_users"] / result["eligible_users"].replace(0, pd.NA)
     return result
+
+
+def cohort_retention(events: pd.DataFrame, activity_events: tuple[str, ...] = ("login", "activation")) -> pd.DataFrame:
+    """Return monthly cohort retention by signup cohort and months since signup."""
+    typed = events.copy()
+    typed["event_timestamp"] = pd.to_datetime(typed["event_timestamp"], utc=True)
+    signup = _first_event(typed, "signup")
+    signup["signup_date"] = signup["signup_time"].dt.floor("D")
+    signup["cohort_month"] = signup["signup_date"].dt.strftime("%Y-%m")
+
+    activity = typed.loc[typed["event_name"].isin(activity_events), ["user_id", "event_timestamp"]].drop_duplicates()
+    activity = activity.merge(signup[["user_id", "signup_date", "cohort_month"]], on="user_id", how="inner")
+    activity["activity_date"] = activity["event_timestamp"].dt.floor("D")
+    activity["period_number"] = (
+        (activity["activity_date"].dt.year - activity["signup_date"].dt.year) * 12
+        + activity["activity_date"].dt.month - activity["signup_date"].dt.month
+    )
+    activity = activity.loc[activity["period_number"].ge(0)]
+
+    cohort_sizes = signup.groupby("cohort_month")["user_id"].nunique().rename("cohort_users")
+    retained = (
+        activity.groupby(["cohort_month", "period_number"])["user_id"]
+        .nunique()
+        .rename("retained_users")
+    )
+    result = retained.reset_index().merge(cohort_sizes.reset_index(), on="cohort_month", how="left")
+    result["retention_rate"] = result["retained_users"] / result["cohort_users"]
+    return result.sort_values(["cohort_month", "period_number"]).reset_index(drop=True)
+
+
+def ltv_by_cohort(events: pd.DataFrame) -> pd.DataFrame:
+    """Return cumulative revenue LTV by signup cohort and months since signup."""
+    typed = events.copy()
+    typed["event_timestamp"] = pd.to_datetime(typed["event_timestamp"], utc=True)
+    typed["revenue"] = pd.to_numeric(typed["revenue"], errors="coerce").fillna(0.0)
+    signup = _first_event(typed, "signup")
+    signup["signup_date"] = signup["signup_time"].dt.floor("D")
+    signup["cohort_month"] = signup["signup_date"].dt.strftime("%Y-%m")
+
+    subscriptions = typed.loc[typed["event_name"].eq("subscription"), ["user_id", "event_timestamp", "revenue"]]
+    subscriptions = subscriptions.merge(signup[["user_id", "signup_date", "cohort_month"]], on="user_id", how="inner")
+    subscriptions["period_number"] = (
+        (subscriptions["event_timestamp"].dt.year - subscriptions["signup_date"].dt.year) * 12
+        + subscriptions["event_timestamp"].dt.month - subscriptions["signup_date"].dt.month
+    )
+    revenue = subscriptions.groupby(["cohort_month", "period_number"], as_index=False)["revenue"].sum()
+    cohort_sizes = signup.groupby("cohort_month")["user_id"].nunique().rename("cohort_users").reset_index()
+    result = revenue.merge(cohort_sizes, on="cohort_month", how="left").sort_values(["cohort_month", "period_number"])
+    result["cumulative_revenue"] = result.groupby("cohort_month")["revenue"].cumsum()
+    result["ltv"] = result["cumulative_revenue"] / result["cohort_users"]
+    return result.reset_index(drop=True)
