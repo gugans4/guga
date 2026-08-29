@@ -4,7 +4,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from src.metrics.core import cohort_retention, experiment_summary, funnel_summary, ltv_by_cohort
+from src.metrics.ab_testing import activation_experiment_from_events
+from src.metrics.core import cohort_retention, funnel_summary, ltv_by_cohort
 
 st.set_page_config(page_title="Growth Funnel Lab", layout="wide")
 st.title("Growth Funnel Lab")
@@ -88,6 +89,19 @@ with ltv_tab:
 
 with experiment_tab:
     st.subheader("Experiment readout")
-    experiment = experiment_summary(events)
-    st.dataframe(experiment.style.format({"activation_rate": "{:.1%}"}), use_container_width=True, hide_index=True)
-    st.info("Interpret metrics using docs/metrics.md. This project uses synthetic data only.")
+    result = activation_experiment_from_events(events)
+    summary = pd.DataFrame([result])
+    st.metric("p-value", f"{result['p_value']:.4f}", help="Two-sided test of equal activation rates.")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Absolute lift", f"{result['absolute_lift']:.1%}")
+    col2.metric("Relative lift", f"{result['relative_lift']:.1%}")
+    col3.metric("Decision", result["decision"])
+    st.dataframe(
+        summary[["control_users", "control_successes", "control_rate", "treatment_users", "treatment_successes", "treatment_rate", "z_statistic", "p_value", "ci_low", "ci_high", "significant"]].style.format({
+            "control_rate": "{:.1%}", "treatment_rate": "{:.1%}", "p_value": "{:.4f}", "ci_low": "{:.1%}", "ci_high": "{:.1%}", "z_statistic": "{:.2f}"
+        }),
+        use_container_width=True,
+        hide_index=True,
+    )
+    st.caption("The test compares 24-hour activation for independent control and treatment users. Interpret p-value together with effect size, confidence interval, sample size, and guardrails.")
+    st.info("Interpret metrics using docs/metrics.md and docs/ab_testing_notes.md. This project uses synthetic data only.")

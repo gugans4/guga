@@ -3,18 +3,42 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
 
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run tests
+        run: python -m pip install -r requirements.txt
+
+      - name: Generate deterministic smoke dataset
+        run: python -m src.data.simulate_events --users 1000 --days 60 --seed 42 --output /tmp/events.csv
+
+      - name: Run unit and analytics tests
         run: python -m pytest -q
-      - name: Generate smoke dataset
-        run: python -m src.data.simulate_events --users 100 --days 30 --output /tmp/events.csv
+
+      - name: Run A/B significance smoke check
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          from src.metrics.ab_testing import activation_experiment_from_events
+          result = activation_experiment_from_events(pd.read_csv('/tmp/events.csv', parse_dates=['event_timestamp']))
+          assert 0 <= result['p_value'] <= 1
+          assert result['control_users'] > 0 and result['treatment_users'] > 0
+          print(result)
+          PY

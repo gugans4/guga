@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from src.data.simulate_events import EVENT_NAMES, generate_events
 
@@ -63,3 +64,22 @@ def test_ltv_is_non_negative_and_cumulative():
     assert (ltv["ltv"] >= 0).all()
     for _, cohort in ltv.groupby("cohort_month"):
         assert cohort["cumulative_revenue"].is_monotonic_increasing
+
+
+def test_ab_test_returns_valid_significance_result():
+    from src.metrics.ab_testing import activation_experiment_test
+
+    result = activation_experiment_test(50, 100, 70, 100)
+    assert 0 <= result["p_value"] <= 1
+    assert result["absolute_lift"] == pytest.approx(0.20)
+    assert result["ci_low"] < result["absolute_lift"] < result["ci_high"]
+
+
+def test_ab_test_from_events_has_both_variants():
+    from src.metrics.ab_testing import activation_experiment_from_events
+
+    events = generate_events(users=1000, days=60, seed=42)
+    result = activation_experiment_from_events(events)
+    assert result["control_users"] > 0
+    assert result["treatment_users"] > 0
+    assert result["p_value"] >= 0

@@ -185,3 +185,20 @@ observed_ltv(cohort, period)
 ```
 
 Revenue is attributed to subscription events. The dashboard plots cumulative LTV by signup cohort and months since signup. Cohorts with incomplete observation windows should not be compared to mature cohorts without an explicit caveat.
+
+## 13. Statistical significance for A/B activation tests
+
+The dashboard compares binary 24-hour activation outcomes between independent control and treatment users with a two-sided two-sample z-test for proportions. The null hypothesis is that the activation rates are equal.
+
+The readout reports:
+
+| Output | Definition |
+|---|---|
+| `p_value` | Probability of observing a result at least this extreme under the equality null hypothesis |
+| `z_statistic` | Standardized difference between treatment and control rates |
+| `absolute_lift` | Treatment activation rate minus control activation rate |
+| `relative_lift` | Absolute lift divided by control activation rate |
+| `ci_low`, `ci_high` | Approximate 95% confidence interval for treatment minus control |
+| `significant` | Whether `p_value < alpha`, with default `alpha = 0.05` |
+
+A low p-value does not prove that the treatment is practically valuable, and it is not the probability that the hypothesis is true. Interpret it with effect size, confidence interval, sample size, experiment design, and guardrails. The normal approximation may be weak for very small groups or sparse outcomes; such cases should be flagged for a more exact or Bayesian analysis.
