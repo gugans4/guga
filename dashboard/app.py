@@ -5,7 +5,7 @@ import plotly.express as px
 import streamlit as st
 
 from src.metrics.ab_testing import activation_experiment_from_events
-from src.metrics.anomalies import detect_cohort_anomalies
+from src.metrics.anomalies import critical_anomalies, detect_cohort_anomalies
 from src.metrics.channel_cohorts import cohort_retention_by_channel, ltv_by_channel
 from src.metrics.core import cohort_retention, funnel_summary, ltv_by_cohort
 from src.reporting.exports import build_excel_report, build_pdf_report
@@ -28,6 +28,7 @@ channel_retention = cohort_retention_by_channel(events)
 ltv = ltv_by_cohort(events)
 channel_ltv = ltv_by_channel(events)
 anomalies = detect_cohort_anomalies(channel_retention) if not channel_retention.empty else pd.DataFrame()
+critical = critical_anomalies(anomalies) if not anomalies.empty else pd.DataFrame()
 ab_result = activation_experiment_from_events(events)
 
 excel_bytes = build_excel_report(events, funnel_raw, channel_retention, channel_ltv, anomalies)
@@ -94,6 +95,24 @@ with retention_tab:
     else:
         st.warning(f"{len(anomaly_view)} cohort-period anomalies detected. Investigate data quality and product changes before assigning a cause.")
         st.dataframe(anomaly_view, use_container_width=True, hide_index=True)
+
+    st.subheader("Anomaly score distribution by cohort")
+    if anomalies.empty:
+        st.info("No anomaly score distribution is available.")
+    else:
+        score_view = anomalies.copy()
+        score_view["cohort_label"] = score_view["signup_channel"] + " · " + score_view["cohort_month"] + " · M" + score_view["period_number"].astype(int).astype(str)
+        score_view["status"] = score_view["is_anomaly"].map({True: "Flagged", False: "Within range"})
+        distribution = px.box(score_view, x="signup_channel", y="anomaly_score", color="status", points="all", hover_data=["cohort_month", "period_number", "cohort_users", "peer_median", "deviation", "reason"], labels={"signup_channel": "Acquisition channel", "anomaly_score": "Robust anomaly score", "status": "Status"})
+        distribution.add_hline(y=3.5, line_dash="dash", line_color="#EA580C", annotation_text="Flag threshold 3.5")
+        distribution.add_hline(y=5.0, line_dash="dot", line_color="#991B1B", annotation_text="Critical threshold 5.0")
+        distribution.update_layout(margin=dict(l=10, r=10, t=30, b=10))
+        st.plotly_chart(distribution, use_container_width=True)
+        scatter = px.scatter(score_view, x="cohort_month", y="anomaly_score", color="signup_channel", symbol="status", size="cohort_users", hover_data=["period_number", "retention_rate", "peer_median", "deviation", "reason"], labels={"cohort_month": "Signup cohort", "anomaly_score": "Robust anomaly score"})
+        scatter.add_hline(y=3.5, line_dash="dash", line_color="#EA580C")
+        scatter.add_hline(y=5.0, line_dash="dot", line_color="#991B1B")
+        st.plotly_chart(scatter, use_container_width=True)
+        st.caption(f"{len(critical)} critical alert-eligible anomalies currently meet score ≥ 5.0 and cohort size ≥ 100.")
 
 with ltv_tab:
     st.subheader("Cumulative LTV by signup cohort")

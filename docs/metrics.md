@@ -234,3 +234,9 @@ An anomaly flag is a prioritization signal, not a diagnosis. Investigate trackin
 ## 16. Report exports
 
 The dashboard exports the same approved analytical tables used on screen. Excel contains `Funnel`, `Retention`, `LTV`, `Anomalies`, and `Event sample` sheets. PDF contains a compact funnel and experiment summary plus the number of anomaly flags. Timestamps are converted to timezone-naive UTC values only for Excel compatibility; source event timestamps remain UTC in the CSV schema.
+
+## 17. Anomaly score distribution and critical alerts
+
+The dashboard visualizes robust anomaly scores by acquisition channel and cohort-period. Box plots show the distribution by channel, while a cohort scatter plot exposes individual outliers. Horizontal reference lines mark the detection threshold (3.5) and critical alert threshold (5.0).
+
+A Telegram alert is eligible only when an observation is already flagged as anomalous, has a robust score of at least 5.0, and represents at least 100 cohort users. Alerts contain only channel, cohort, period, score, and cohort size; they do not include raw event rows. Delivery is skipped when Telegram secrets are absent and is non-blocking for the analytics CI job.

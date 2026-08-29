@@ -78,3 +78,12 @@ jobs:
               raise RuntimeError(result)
           print('Telegram report sent')
           PY
+
+      - name: Send critical cohort anomaly alert to Telegram
+        if: ${{ success() && secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
+        continue-on-error: true
+        env:
+          EVENTS_PATH: /tmp/events.csv
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m scripts.send_critical_anomaly_alert
